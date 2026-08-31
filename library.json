@@ -1,0 +1,11 @@
+{
+  "name": "OpenOTA",
+  "version": "1.0.0",
+  "description": "Mise a jour OTA par navigateur pour ESP32/ESP8266 : glisser-deposer, bascule firmware/systeme de fichiers, identite materielle, verification MD5, marque blanche, rollback.",
+  "keywords": "ota, update, esp32, esp8266, firmware, webserver",
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": ["espressif32", "espressif8266"],
+  "headers": "OpenOTA.h",
+  "export": { "exclude": ["web", "tools"] }
+}

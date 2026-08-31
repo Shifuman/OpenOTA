@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mise a jour</title>
+<style>
+:root{
+  --bg:#16191d; --panel:#1e2229; --line:#2c323b; --line2:#39414c;
+  --text:#dfe4ea; --dim:#8892a0; --accent:#f0a828;
+  --ok:#4fb477; --err:#e05252;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  padding:24px 16px 48px;
+}
+.wrap{max-width:620px;margin:0 auto}
+
+/* ---- head ---- */
+.head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.head img,.head svg{height:30px;width:auto;display:block}
+.head h1{font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em}
+.head .sp{flex:1}
+.lamp{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim)}
+.lamp i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:block}
+.lamp.off i{background:var(--err)}
+
+/* ---- device readout ---- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.readout{padding:14px 16px;margin-bottom:14px}
+.readout dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 18px}
+.readout dt{color:var(--dim);font-size:13px}
+.readout dd{margin:0;font-family:var(--mono);font-size:13.5px;
+  font-variant-numeric:tabular-nums;word-break:break-all}
+.readout dd b{font-weight:600;color:var(--accent)}
+
+/* ---- mode segmented ---- */
+.modes{display:flex;gap:0;margin-bottom:14px;border:1px solid var(--line);
+  border-radius:8px;overflow:hidden;background:var(--panel)}
+.modes label{flex:1;position:relative}
+.modes input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.modes span{display:block;text-align:center;padding:9px 8px;font-size:14px;
+  color:var(--dim);border-right:1px solid var(--line);transition:color .12s,background .12s}
+.modes label:last-child span{border-right:0}
+.modes input:checked+span{color:var(--bg);background:var(--accent);font-weight:600}
+.modes input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
+.modes input:disabled+span{opacity:.35;cursor:not-allowed}
+
+/* ---- drop target ---- */
+.drop{padding:34px 20px;text-align:center;border-style:dashed;border-width:1.5px;
+  border-color:var(--line2);cursor:pointer;transition:border-color .12s,background .12s}
+.drop:hover{border-color:var(--dim)}
+.drop.hot{border-color:var(--accent);background:#22262d}
+.drop.hot .di{color:var(--accent)}
+.di{color:var(--dim);margin-bottom:10px}
+.di svg{width:34px;height:34px;display:inline-block}
+.drop p{margin:0;font-size:14px;color:var(--dim)}
+.drop u{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+
+/* ---- selected file ---- */
+.file{display:none;padding:13px 16px;align-items:baseline;gap:10px;flex-wrap:wrap}
+.file.on{display:flex}
+.file .nm{font-family:var(--mono);font-size:13.5px;flex:1;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .sz{font-family:var(--mono);font-size:13px;color:var(--dim);
+  font-variant-numeric:tabular-nums}
+.file button{background:none;border:0;color:var(--dim);font-size:13px;
+  cursor:pointer;padding:0;font-family:var(--sans)}
+.file button:hover{color:var(--err)}
+
+/* ---- sector map (signature) ---- */
+.prog{display:none;margin-top:14px;padding:14px 16px}
+.prog.on{display:block}
+.map{display:flex;gap:2px;height:22px;margin-bottom:10px}
+.map i{flex:1;background:var(--line);border-radius:1px;transition:background .1s linear}
+.map i.w{background:var(--accent)}
+.map.done i.w{background:var(--ok)}
+.map.fail i.w{background:var(--err)}
+.stats{display:flex;gap:16px;font-family:var(--mono);font-size:12.5px;
+  color:var(--dim);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.stats b{color:var(--text);font-weight:600}
+
+/* ---- actions ---- */
+.go{width:100%;margin-top:14px;padding:12px;border:0;border-radius:8px;
+  background:var(--accent);color:#16191d;font-family:var(--sans);
+  font-size:15px;font-weight:600;cursor:pointer}
+.go:disabled{background:var(--line);color:var(--dim);cursor:not-allowed}
+.go:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+
+.msg{display:none;margin-top:14px;padding:11px 14px;border-radius:8px;font-size:14px;
+  border:1px solid}
+.msg.on{display:block}
+.msg.e{border-color:var(--err);color:var(--err);background:#2a1c1c}
+.msg.s{border-color:var(--ok);color:var(--ok);background:#1a2620}
+.msg.i{border-color:var(--line2);color:var(--dim);background:var(--panel)}
+
+.opt{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--dim)}
+.opt input{accent-color:var(--accent);margin:0}
+footer{margin-top:26px;font-size:12.5px;color:var(--dim);text-align:center}
+footer a{color:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:420px){
+  .readout dl{grid-template-columns:1fr;gap:2px 0}
+  .readout dt{margin-top:6px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <span id="logo"></span>
+    <h1 id="pname">Mise a jour</h1>
+    <span class="sp"></span>
+    <span class="lamp" id="lamp"><i></i><span id="lampt">connecte</span></span>
+  </div>
+
+  <div class="card readout">
+    <dl id="ro"></dl>
+  </div>
+
+  <div class="modes" id="modes">
+    <label><input type="radio" name="m" value="fw" checked><span>Firmware</span></label>
+    <label><input type="radio" name="m" value="fs"><span>Systeme de fichiers</span></label>
+  </div>
+
+  <div class="card drop" id="drop" tabindex="0" role="button" aria-label="Choisir un fichier .bin">
+    <div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/>
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+    <p>Depose le .bin ici ou <u>parcourir</u></p>
+  </div>
+  <input type="file" id="f" accept=".bin,application/octet-stream" hidden>
+
+  <div class="card file" id="fi">
+    <span class="nm" id="fn"></span>
+    <span class="sz" id="fs"></span>
+    <button id="clr" type="button">retirer</button>
+  </div>
+
+  <label class="opt"><input type="checkbox" id="md5c" checked>Verifier l'integrite (MD5)</label>
+
+  <div class="card prog" id="pr">
+    <div class="map" id="map"></div>
+    <div class="stats">
+      <span><b id="pct">0%</b></span>
+      <span id="don">0 / 0</span>
+      <span id="spd"></span>
+      <span id="eta"></span>
+    </div>
+  </div>
+
+  <button class="go" id="go" disabled>Ecrire le firmware</button>
+  <div class="msg" id="msg"></div>
+  <footer id="ft"></footer>
+</div>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var CELLS=48, file=null, busy=false, info={}, cells=[];
+
+/* ---------- helpers ---------- */
+function hb(n){ if(n<1024)return n+" B";
+  var u=["kB","MB","GB"],i=-1; do{n/=1024;i++}while(n>=1024&&i<2);
+  return n.toFixed(n<10?2:1)+" "+u[i]; }
+function hs(s){ if(!isFinite(s)||s<0)return"";
+  if(s<60)return Math.ceil(s)+"s"; return Math.floor(s/60)+"m"+("0"+Math.ceil(s%60)).slice(-2)+"s"; }
+function say(t,k){ var m=$("msg"); m.textContent=t; m.className="msg on "+(k||"i"); }
+function hide(){ $("msg").className="msg"; }
+
+/* ---------- sector map ---------- */
+(function(){ var m=$("map");
+  for(var i=0;i<CELLS;i++){var e=document.createElement("i");m.appendChild(e);cells.push(e);} })();
+function paint(p){
+  var n=Math.round(p*CELLS);
+  for(var i=0;i<CELLS;i++) cells[i].className = i<n ? "w" : "";
+}
+
+/* ---------- MD5 (compact, RFC 1321) ---------- */
+function md5(bytes){
+  function L(a,b){return(a<<b)|(a>>>(32-b))}
+  function A(a,b){var l=(a&65535)+(b&65535);return(((a>>16)+(b>>16)+(l>>16))<<16)|(l&65535)}
+  function C(q,a,b,x,s,t){return A(L(A(A(a,q),A(x,t)),s),b)}
+  function F(a,b,c,d,x,s,t){return C((b&c)|(~b&d),a,b,x,s,t)}
+  function G(a,b,c,d,x,s,t){return C((b&d)|(c&~d),a,b,x,s,t)}
+  function H(a,b,c,d,x,s,t){return C(b^c^d,a,b,x,s,t)}
+  function I(a,b,c,d,x,s,t){return C(c^(b|~d),a,b,x,s,t)}
+  var n=bytes.length, nw=(((n+8)>>6)+1)*16, w=new Array(nw);
+  for(var i=0;i<nw;i++)w[i]=0;
+  for(i=0;i<n;i++) w[i>>2]|=bytes[i]<<((i%4)*8);
+  w[i>>2]|=0x80<<((i%4)*8); w[nw-2]=n*8;
+  var a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+  for(i=0;i<nw;i+=16){
+    var oa=a,ob=b,oc=c,od=d;
+    a=F(a,b,c,d,w[i],7,-680876936);      d=F(d,a,b,c,w[i+1],12,-389564586);
+    c=F(c,d,a,b,w[i+2],17,606105819);    b=F(b,c,d,a,w[i+3],22,-1044525330);
+    a=F(a,b,c,d,w[i+4],7,-176418897);    d=F(d,a,b,c,w[i+5],12,1200080426);
+    c=F(c,d,a,b,w[i+6],17,-1473231341);  b=F(b,c,d,a,w[i+7],22,-45705983);
+    a=F(a,b,c,d,w[i+8],7,1770035416);    d=F(d,a,b,c,w[i+9],12,-1958414417);
+    c=F(c,d,a,b,w[i+10],17,-42063);      b=F(b,c,d,a,w[i+11],22,-1990404162);
+    a=F(a,b,c,d,w[i+12],7,1804603682);   d=F(d,a,b,c,w[i+13],12,-40341101);
+    c=F(c,d,a,b,w[i+14],17,-1502002290); b=F(b,c,d,a,w[i+15],22,1236535329);
+    a=G(a,b,c,d,w[i+1],5,-165796510);    d=G(d,a,b,c,w[i+6],9,-1069501632);
+    c=G(c,d,a,b,w[i+11],14,643717713);   b=G(b,c,d,a,w[i],20,-373897302);
+    a=G(a,b,c,d,w[i+5],5,-701558691);    d=G(d,a,b,c,w[i+10],9,38016083);
+    c=G(c,d,a,b,w[i+15],14,-660478335);  b=G(b,c,d,a,w[i+4],20,-405537848);
+    a=G(a,b,c,d,w[i+9],5,568446438);     d=G(d,a,b,c,w[i+14],9,-1019803690);
+    c=G(c,d,a,b,w[i+3],14,-187363961);   b=G(b,c,d,a,w[i+8],20,1163531501);
+    a=G(a,b,c,d,w[i+13],5,-1444681467);  d=G(d,a,b,c,w[i+2],9,-51403784);
+    c=G(c,d,a,b,w[i+7],14,1735328473);   b=G(b,c,d,a,w[i+12],20,-1926607734);
+    a=H(a,b,c,d,w[i+5],4,-378558);       d=H(d,a,b,c,w[i+8],11,-2022574463);
+    c=H(c,d,a,b,w[i+11],16,1839030562);  b=H(b,c,d,a,w[i+14],23,-35309556);
+    a=H(a,b,c,d,w[i+1],4,-1530992060);   d=H(d,a,b,c,w[i+4],11,1272893353);
+    c=H(c,d,a,b,w[i+7],16,-155497632);   b=H(b,c,d,a,w[i+10],23,-1094730640);
+    a=H(a,b,c,d,w[i+13],4,681279174);    d=H(d,a,b,c,w[i],11,-358537222);
+    c=H(c,d,a,b,w[i+3],16,-722521979);   b=H(b,c,d,a,w[i+6],23,76029189);
+    a=H(a,b,c,d,w[i+9],4,-640364487);    d=H(d,a,b,c,w[i+12],11,-421815835);
+    c=H(c,d,a,b,w[i+15],16,530742520);   b=H(b,c,d,a,w[i+2],23,-995338651);
+    a=I(a,b,c,d,w[i],6,-198630844);      d=I(d,a,b,c,w[i+7],10,1126891415);
+    c=I(c,d,a,b,w[i+14],15,-1416354905); b=I(b,c,d,a,w[i+5],21,-57434055);
+    a=I(a,b,c,d,w[i+12],6,1700485571);   d=I(d,a,b,c,w[i+3],10,-1894986606);
+    c=I(c,d,a,b,w[i+10],15,-1051523);    b=I(b,c,d,a,w[i+1],21,-2054922799);
+    a=I(a,b,c,d,w[i+8],6,1873313359);    d=I(d,a,b,c,w[i+15],10,-30611744);
+    c=I(c,d,a,b,w[i+6],15,-1560198380);  b=I(b,c,d,a,w[i+13],21,1309151649);
+    a=I(a,b,c,d,w[i+4],6,-145523070);    d=I(d,a,b,c,w[i+11],10,-1120210379);
+    c=I(c,d,a,b,w[i+2],15,718787259);    b=I(b,c,d,a,w[i+9],21,-343485551);
+    a=A(a,oa);b=A(b,ob);c=A(c,oc);d=A(d,od);
+  }
+  var hex="0123456789abcdef",out="";
+  var v=[a,b,c,d];
+  for(i=0;i<16;i++){ var by=(v[i>>2]>>((i%4)*8))&255;
+    out+=hex.charAt(by>>4)+hex.charAt(by&15); }
+  return out;
+}
+
+/* ---------- device info ---------- */
+function row(dl,k,v,hi){
+  var dt=document.createElement("dt"); dt.textContent=k;
+  var dd=document.createElement("dd");
+  if(hi){var b=document.createElement("b");b.textContent=v;dd.appendChild(b);}
+  else dd.textContent=v;
+  dl.appendChild(dt); dl.appendChild(dd);
+}
+function loadInfo(){
+  fetch(BASE+"/info",{credentials:"same-origin"})
+    .then(function(r){ if(r.status===401){location.reload();throw 0;}
+                       if(!r.ok)throw 0; return r.json(); })
+    .then(function(j){
+      info=j;
+      if(j.accent) document.documentElement.style.setProperty("--accent",j.accent);
+      if(j.name){ $("pname").textContent=j.name; document.title=j.name; }
+      if(j.logo) $("logo").innerHTML=
+        (j.logo.indexOf("<svg")===0) ? j.logo : '<img alt="" src="'+j.logo+'">';
+      if(j.footer) $("ft").innerHTML=j.footer;
+
+      var dl=$("ro"); dl.innerHTML="";
+      row(dl,"Identifiant materiel",j.hwid,true);
+      if(j.version) row(dl,"Version en cours",j.version);
+      row(dl,"Puce",j.chip+" rev"+j.rev+" \u00b7 "+j.cores+" coeur(s) @ "+j.mhz+" MHz");
+      row(dl,"Flash",hb(j.flash));
+      row(dl,"Emplacement appli",hb(j.appUsed)+" / "+hb(j.appMax));
+      if(j.fsSize) row(dl,"Systeme de fichiers",hb(j.fsSize));
+      row(dl,"RAM libre",hb(j.heap));
+      if(j.sdk) row(dl,"SDK",j.sdk);
+      if(j.built) row(dl,"Compile le",j.built);
+
+      $("modes").children[0].firstChild.disabled = !j.fwEnabled;
+      $("modes").children[1].firstChild.disabled = !j.fsEnabled;
+      if(!j.fwEnabled && j.fsEnabled) $("modes").children[1].firstChild.checked=true;
+      if(!j.fwEnabled && !j.fsEnabled){ say("Les mises a jour sont desactivees sur cet appareil.","e");
+        $("drop").style.display="none"; }
+      sync();
+    })
+    .catch(function(){ $("lamp").className="lamp off"; $("lampt").textContent="hors ligne"; });
+}
+
+/* ---------- file selection ---------- */
+function pick(f){
+  if(!f) return;
+  if(!/\.bin$/i.test(f.name)){ say("Attendu un fichier .bin — "+f.name+" a ete ignore.","e"); return; }
+  file=f; hide();
+  $("fn").textContent=f.name; $("fs").textContent=hb(f.size); $("fi").className="card file on";
+  var m=mode(), cap = m==="fw" ? info.appMax : info.fsSize;
+  if(cap && f.size>cap)
+    say("Ce fichier ("+hb(f.size)+") depasse l'emplacement cible ("+hb(cap)+"). L'ecriture echouera.","e");
+  sync();
+}
+function mode(){ return document.querySelector('input[name=m]:checked').value }
+function sync(){
+  $("go").disabled = !file || busy;
+  $("go").textContent = busy ? "Ecriture en cours\u2026"
+    : (mode()==="fw" ? "Ecrire le firmware" : "Ecrire le systeme de fichiers");
+}
+
+var d=$("drop");
+d.addEventListener("click",function(){ $("f").click() });
+d.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){e.preventDefault();$("f").click()} });
+["dragenter","dragover"].forEach(function(ev){
+  d.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();d.classList.add("hot")});});
+["dragleave","drop"].forEach(function(ev){
+  d.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();d.classList.remove("hot")});});
+d.addEventListener("drop",function(e){ pick(e.dataTransfer.files[0]) });
+window.addEventListener("dragover",function(e){e.preventDefault()});
+window.addEventListener("drop",function(e){e.preventDefault()});
+$("f").addEventListener("change",function(e){ pick(e.target.files[0]) });
+$("clr").addEventListener("click",function(){ file=null;$("f").value="";
+  $("fi").className="card file"; hide(); sync(); });
+Array.prototype.forEach.call(document.querySelectorAll('input[name=m]'),function(r){
+  r.addEventListener("change",function(){ if(file) pick(file); else sync(); }); });
+
+/* ---------- upload ---------- */
+function send(hash){
+  var url=BASE+"/upload?mode="+mode()+"&size="+file.size+(hash?("&md5="+hash):"");
+  var fd=new FormData(); fd.append("f",file,file.name);
+  var xhr=new XMLHttpRequest(), t0=Date.now(), last=t0, lastB=0, spd=0;
+  xhr.open("POST",url,true); xhr.withCredentials=true;
+  $("map").className="map"; $("pr").className="card prog on"; paint(0);
+
+  xhr.upload.onprogress=function(e){
+    if(!e.lengthComputable) return;
+    var p=e.loaded/e.total, now=Date.now();
+    paint(p); $("pct").textContent=Math.round(p*100)+"%";
+    $("don").textContent=hb(e.loaded)+" / "+hb(e.total);
+    if(now-last>350){
+      var inst=(e.loaded-lastB)/((now-last)/1000);
+      spd = spd ? spd*0.7+inst*0.3 : inst; last=now; lastB=e.loaded;
+      $("spd").textContent=hb(spd)+"/s";
+      $("eta").textContent=spd>0 ? "reste "+hs((e.total-e.loaded)/spd) : "";
+    }
+  };
+  xhr.onload=function(){
+    busy=false; $("spd").textContent=""; $("eta").textContent="";
+    var ok = xhr.status>=200 && xhr.status<300;
+    var body=(xhr.responseText||"").trim();
+    if(ok){
+      paint(1); $("pct").textContent="100%"; $("map").className="map done";
+      var s=((Date.now()-t0)/1000).toFixed(1);
+      if(info.autoReboot){
+        say("Ecriture terminee en "+s+" s. L'appareil redemarre\u2026","s");
+        setTimeout(waitBack,2500);
+      } else {
+        say("Ecriture terminee en "+s+" s. Redemarre l'appareil pour l'appliquer.","s");
+      }
+    } else {
+      $("map").className="map fail";
+      say(body || ("Echec de l'ecriture (HTTP "+xhr.status+")."),"e");
+    }
+    sync();
+  };
+  xhr.onerror=function(){ busy=false; $("map").className="map fail";
+    say("Connexion perdue pendant le transfert. Rien n'a ete valide.","e"); sync(); };
+  xhr.send(fd);
+}
+
+function waitBack(){
+  var tries=0;
+  (function poll(){
+    fetch(BASE+"/info",{cache:"no-store",credentials:"same-origin"})
+      .then(function(r){ if(!r.ok)throw 0; location.reload(); })
+      .catch(function(){ if(++tries<40) setTimeout(poll,1500);
+        else say("L'appareil n'est pas revenu. Recharge la page manuellement.","e"); });
+  })();
+}
+
+$("go").addEventListener("click",function(){
+  if(!file||busy) return;
+  busy=true; hide(); sync();
+  if(!$("md5c").checked){ send(null); return; }
+  say("Calcul de l'empreinte\u2026","i");
+  var fr=new FileReader();
+  fr.onload=function(){ hide(); send(md5(new Uint8Array(fr.result))); };
+  fr.onerror=function(){ busy=false; say("Lecture du fichier impossible.","e"); sync(); };
+  fr.readAsArrayBuffer(file);
+});
+
+var BASE=(location.pathname.replace(/\/+$/,"")||"/update");
+loadInfo();
+})();
+</script>
+</body>
+</html>
