@@ -9,6 +9,13 @@ const char* PASS = "...";
 
 WebServer server(80);
 
+// Remplace par tes propres controles : peripheriques presents, capteurs qui
+// repondent, liaison montante etablie. Renvoyer true a l'aveugle vide le
+// rollback de son interet.
+bool autotestsOk() {
+  return WiFi.status() == WL_CONNECTED;
+}
+
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
