@@ -95,6 +95,28 @@ class OpenOTAClass {
   // Refuse toute image dont le MD5 n'est pas fourni par le client.
   void setRequireChecksum(bool r) { _requireMd5 = r; }
 
+  // --- Compatibilite de l'image -----------------------------------------
+  // Les 288 premiers octets sont inspectes avant la premiere ecriture flash.
+  // Une image destinee a une autre cible est rejetee sans avoir touche la
+  // partition.
+  //
+  // Modele de puce : compare a l'en-tete de la partition en cours d'execution.
+  // Actif par defaut, aucune configuration. Bloque un binaire S3 sur un ESP32.
+  void setChipCheckEnabled(bool e) { _checkChip = e; }
+  //
+  // Variante : compare project_name du descripteur applicatif. Inactif par
+  // defaut car il faut d'abord verifier ce que ta chaine de build y met.
+  // Sans argument, la valeur attendue est celle de l'image en cours.
+  void setVariantCheckEnabled(bool e) { _checkVariant = e; }
+  void setExpectedVariant(const char* name) { _variant = name; _checkVariant = true; }
+
+  // Identite de l'image en cours d'execution (ESP32).
+  String runningVariant() const;
+  String runningVersion() const;
+  // Identite de la derniere image recue, renseignee des l'inspection.
+  String incomingVariant() const { return _inVariant; }
+  String incomingVersion() const { return _inVersion; }
+
   // --- comportement ------------------------------------------------------
   void setAutoReboot(bool e) { _autoReboot = e; }
   void setRebootDelay(uint32_t ms) { _rebootDelay = ms; }
@@ -139,6 +161,7 @@ class OpenOTAClass {
 
   // --- moteur d'ecriture, commun aux deux modes de serveur ---------------
   bool writeBegin(OpenOTATarget target, size_t size, const String& md5, String& err);
+  bool inspectHeader(String& err);
   bool writeChunk(uint8_t* data, size_t len, String& err);
   bool writeFinish(String& err);
   void writeAbort();
@@ -180,6 +203,16 @@ class OpenOTAClass {
   size_t _total = 0;
   OpenOTATarget _target = OPENOTA_FIRMWARE;
   uint32_t _lastProgressMs = 0;
+
+  // Tampon d'inspection : en-tete image (32 o) + descripteur appli (256 o).
+  static const size_t HDR_LEN = 288;
+  uint8_t _hdr[HDR_LEN];
+  size_t _hdrLen = 0;
+  bool _hdrDone = false;
+  bool _checkChip = true;
+  bool _checkVariant = false;
+  String _variant;
+  String _inVariant, _inVersion;
 };
 
 extern OpenOTAClass OpenOTA;

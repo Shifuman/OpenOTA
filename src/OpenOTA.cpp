@@ -73,6 +73,100 @@ String OpenOTAClass::updaterError() {
 // ---------------------------------------------------------------------------
 // Moteur d'ecriture
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Inspection de l'en-tete de l'image
+//
+// Disposition d'une image applicative Espressif :
+//   0x000  esp_image_header_t      32 o   magie 0xE9, chip_id sur 2 o a 0x00C
+//   0x020  esp_app_desc_t         256 o   magie 0xABCD5432
+//            +0x00 magic  +0x10 version[32]  +0x30 project_name[32]
+// Soit 288 octets a bufferiser avant de pouvoir decider.
+// ---------------------------------------------------------------------------
+#define OPENOTA_DESC_OFF     32
+#define OPENOTA_DESC_MAGIC   0xABCD5432UL
+#define OPENOTA_VERSION_OFF  (OPENOTA_DESC_OFF + 0x10)
+#define OPENOTA_PROJECT_OFF  (OPENOTA_DESC_OFF + 0x30)
+
+static String fixedStr(const uint8_t* p, size_t max) {
+  char buf[33];
+  size_t n = max < 32 ? max : 32;
+  memcpy(buf, p, n);
+  buf[n] = 0;
+  return String(buf);
+}
+
+bool OpenOTAClass::inspectHeader(String& err) {
+  // Une image de systeme de fichiers n'a pas d'en-tete applicatif.
+  if (_target != OPENOTA_FIRMWARE) return true;
+
+  if (_hdr[0] != 0xE9) {
+    err = "Ce fichier n'est pas une image Espressif (magie 0x"
+          + String(_hdr[0]) + " au lieu de 0xE9). Fichier .bin errone ?";
+    return false;
+  }
+
+#if defined(ESP32)
+  // --- modele de puce -----------------------------------------------------
+  // Compare a l'en-tete de la partition qui tourne : pas de table de
+  // correspondance a maintenir, la reference se decrit elle-meme.
+  if (_checkChip) {
+    const esp_partition_t* run = esp_ota_get_running_partition();
+    uint8_t mine[16];
+    if (run && esp_partition_read(run, 0, mine, sizeof(mine)) == ESP_OK) {
+      uint16_t idIn = 0, idMe = 0;
+      memcpy(&idIn, _hdr + 12, 2);
+      memcpy(&idMe, mine + 12, 2);
+      if (idIn != idMe) {
+        err = "Image compilee pour une autre puce (chip_id 0x" + String(idIn)
+              + ", cette carte est 0x" + String(idMe) + ").";
+        return false;
+      }
+    }
+  }
+
+  // --- descripteur applicatif --------------------------------------------
+  uint32_t magic = 0;
+  memcpy(&magic, _hdr + OPENOTA_DESC_OFF, 4);
+  if (magic == OPENOTA_DESC_MAGIC) {
+    _inVersion = fixedStr(_hdr + OPENOTA_VERSION_OFF, 32);
+    _inVariant = fixedStr(_hdr + OPENOTA_PROJECT_OFF, 32);
+    OPENOTA_LOG("image entrante: %s %s", _inVariant.c_str(), _inVersion.c_str());
+
+    if (_checkVariant) {
+      String want = _variant.length() ? _variant : runningVariant();
+      if (want.length() && _inVariant != want) {
+        err = "Image marquee \"" + _inVariant + "\" alors que cette carte "
+              "attend \"" + want + "\".";
+        return false;
+      }
+    }
+  } else if (_checkVariant) {
+    err = "Descripteur applicatif absent : variante non verifiable.";
+    return false;
+  }
+#endif
+  return true;
+}
+
+String OpenOTAClass::runningVariant() const {
+#if defined(ESP32)
+  const esp_app_desc_t* d = esp_ota_get_app_description();
+  return d ? String(d->project_name) : String();
+#else
+  return String();
+#endif
+}
+
+String OpenOTAClass::runningVersion() const {
+#if defined(ESP32)
+  const esp_app_desc_t* d = esp_ota_get_app_description();
+  return d ? String(d->version) : String();
+#else
+  return String();
+#endif
+}
+
 bool OpenOTAClass::writeBegin(OpenOTATarget target, size_t size,
                               const String& md5, String& err) {
   if (!_enabled) { err = "Les mises a jour sont desactivees."; return false; }
@@ -132,6 +226,10 @@ bool OpenOTAClass::writeBegin(OpenOTATarget target, size_t size,
   _total = size;
   _target = target;
   _lastProgressMs = 0;
+  _hdrLen = 0;
+  _hdrDone = false;
+  _inVariant = "";
+  _inVersion = "";
   OPENOTA_LOG("debut cible=%d taille=%u", (int)target, (unsigned)size);
   if (_onStart) _onStart(target);
   return true;
@@ -139,6 +237,29 @@ bool OpenOTAClass::writeBegin(OpenOTATarget target, size_t size,
 
 bool OpenOTAClass::writeChunk(uint8_t* data, size_t len, String& err) {
   if (!_active || _failed) return false;
+
+  // Accumule les 288 premiers octets, puis decide avant la premiere ecriture.
+  if (!_hdrDone) {
+    size_t room = HDR_LEN - _hdrLen;
+    size_t take = (len < room) ? len : room;
+    memcpy(_hdr + _hdrLen, data, take);
+    _hdrLen += take;
+    if (_hdrLen >= HDR_LEN) {
+      _hdrDone = true;
+      String herr;
+      if (!inspectHeader(herr)) {
+        err = herr;
+        _failed = true;
+        _error = herr;
+        Update.abort();
+        _active = false;
+        OPENOTA_LOG("image refusee: %s", herr.c_str());
+        if (_onEnd) _onEnd(false, herr);
+        return false;
+      }
+    }
+  }
+
   if (Update.write(data, len) != len) {
     err = "Ecriture flash interrompue : " + updaterError();
     _failed = true;
