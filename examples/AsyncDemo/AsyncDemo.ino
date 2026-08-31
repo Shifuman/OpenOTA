@@ -16,8 +16,13 @@ const char* PASS = "...";
 
 AsyncWebServer server(80);
 
+// Entree "machine en fonctionnement" — adapte a ton cablage.
+constexpr uint8_t PIN_MOTEUR_ACTIF = 34;
+
 void setup() {
   Serial.begin(115200);
+  pinMode(PIN_MOTEUR_ACTIF, INPUT);
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, PASS);
   while (WiFi.status() != WL_CONNECTED) { delay(300); Serial.print('.'); }
