@@ -5,9 +5,11 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <WebServer.h>
+#include <Preferences.h>
 #include <OpenOTA.h>
 
 WebServer server(80);
+Preferences prefs;
 
 // Numero de serie de l'unite, colle sur le boitier.
 // Grave en NVS a la production, ou derive de la MAC.
@@ -20,6 +22,8 @@ String serialNumber() {
 
 void setup() {
   Serial.begin(115200);
+  prefs.begin("ota", false);   // drapeau ota_armed, persistant en NVS
+
   WiFi.mode(WIFI_STA);
   WiFi.begin("ssid", "pass");
   while (WiFi.status() != WL_CONNECTED) delay(300);
